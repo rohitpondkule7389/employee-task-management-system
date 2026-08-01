@@ -1,0 +1,32 @@
+[
+  {
+    "ContainingType": "DashboardService.API.Controllers.DashboardController",
+    "Method": "GetAdminDashboard",
+    "RelativePath": "api/dashboard/admin",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "DashboardService.API.Controllers.DashboardController",
+    "Method": "GetEmployeeDashboard",
+    "RelativePath": "api/dashboard/employee",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "DashboardService.API.Controllers.DashboardController",
+    "Method": "GetManagerDashboard",
+    "RelativePath": "api/dashboard/manager",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  }
+]
