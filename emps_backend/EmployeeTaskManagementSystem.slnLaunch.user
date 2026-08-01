@@ -1,0 +1,31 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "ApiGateway\\ApiGateway.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "ProjectManagement.Web\\ProjectManagement.Web.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "TaskService.API\\TaskService.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "ProjectService.API\\ProjectService.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "UserService.API\\UserService.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "DashboardService.API\\DashboardService.API.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
