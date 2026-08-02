@@ -1,0 +1,224 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, FolderKanban, Calendar, UserCheck, UserPlus, Edit2, Trash2, Search, Eye } from 'lucide-react';
+import { fetchProjects, fetchUsers, fetchEmployees, createProject, updateProject, deleteProject, fetchProjectEmployeeDetails, getUserName } from '../services/api';
+import { ProjectModal } from '../components/ProjectModal';
+import { AssignEmployeeModal } from '../components/AssignEmployeeModal';
+import { ProjectDetailsModal } from '../components/ProjectDetailsModal';
+import { useAuth } from '../context/AuthContext';
+
+export const ProjectsPage = () => {
+  const { user } = useAuth();
+  const [projects, setProjects] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  // Modals
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
+  
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [assigningProject, setAssigningProject] = useState(null);
+
+  const [selectedProjectDetails, setSelectedProjectDetails] = useState(null);
+
+  useEffect(() => {
+    loadData();
+  }, [user]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [pRes, uRes, eRes] = await Promise.all([
+        fetchProjects(),
+        fetchUsers(),
+        fetchEmployees()
+      ]);
+      
+      setManagers(uRes.filter(u => u.role === 'Manager'));
+      setEmployees(eRes);
+
+      if (user?.role === 'Admin') {
+        setProjects(pRes);
+      } else if (user?.role === 'Manager') {
+        const myProjects = pRes.filter(p => Number(p.managerId) === Number(user.userId));
+        setProjects(myProjects);
+      } else if (user?.role === 'Employee') {
+        const assignedProjects = [];
+        for (const proj of pRes) {
+          const empDetails = await fetchProjectEmployeeDetails(proj.projectId);
+          if (empDetails.some(e => Number(e.userId) === Number(user.userId))) {
+            assignedProjects.push(proj);
+          }
+        }
+        setProjects(assignedProjects);
+      } else {
+        setProjects(pRes);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateOrUpdate = async (formData) => {
+    if (editingProject) {
+      await updateProject(editingProject.projectId, formData);
+    } else {
+      await createProject(formData);
+    }
+    loadData();
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this project?')) {
+      await deleteProject(id);
+      setProjects(prev => prev.filter(p => p.projectId !== id));
+    }
+  };
+
+  const filteredProjects = projects.filter(p => 
+    p.projectName?.toLowerCase().includes(search.toLowerCase()) ||
+    p.description?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const canCreateProject = user?.role === 'Admin' || user?.role === 'Manager';
+  const canAssignEmployees = user?.role === 'Admin' || user?.role === 'Manager';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+      {/* Header Bar */}
+      <div className="glass-panel" style={{ padding: '1.25rem 1.5rem', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', background: '#ffffff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: '1 1 300px' }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+            <input
+              type="text"
+              className="glass-input"
+              style={{ width: '100%', paddingLeft: '2.5rem' }}
+              placeholder="Search projects..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Search size={16} color="#64748b" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
+          </div>
+
+          <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600' }}>
+            {user?.role === 'Employee' ? 'Projects assigned to you' : user?.role === 'Manager' ? 'My Managed Projects' : 'All Enterprise Projects'}
+          </span>
+        </div>
+
+        {canCreateProject && (
+          <button 
+            className="gradient-button"
+            onClick={() => { setEditingProject(null); setIsProjectModalOpen(true); }}
+          >
+            <Plus size={16} /> Create Project
+          </button>
+        )}
+      </div>
+
+      {/* Projects Grid */}
+      {loading ? (
+        <p style={{ color: '#64748b', padding: '2rem' }}>Loading Projects Workspace...</p>
+      ) : filteredProjects.length === 0 ? (
+        <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', background: '#ffffff' }}>
+          <FolderKanban size={40} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+          <p style={{ fontSize: '0.95rem', fontWeight: '600' }}>No projects available for your role.</p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
+          {filteredProjects.map(proj => (
+            <div key={proj.projectId} className="glass-panel glass-panel-hover" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1rem', background: '#ffffff' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                  <h3 
+                    onClick={() => setSelectedProjectDetails(proj)}
+                    style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', cursor: 'pointer' }}
+                  >
+                    {proj.projectName}
+                  </h3>
+                  {canCreateProject && (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button 
+                        onClick={() => { setEditingProject(proj); setIsProjectModalOpen(true); }} 
+                        style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '2px' }}
+                        title="Edit Project"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(proj.projectId)} 
+                        style={{ background: 'transparent', border: 'none', color: '#e11d48', cursor: 'pointer', padding: '2px' }}
+                        title="Delete Project"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <p style={{ fontSize: '0.85rem', color: '#475569', lineHeight: '1.4', marginBottom: '1rem' }}>
+                  {proj.description}
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.78rem', color: '#64748b', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={14} color="#4f46e5" />
+                    <span>Timeline: <strong style={{ color: '#0f172a' }}>{proj.startDate ? new Date(proj.startDate).toLocaleDateString() : 'N/A'}</strong> to <strong style={{ color: '#0f172a' }}>{proj.endDate ? new Date(proj.endDate).toLocaleDateString() : 'N/A'}</strong></span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <UserCheck size={14} color="#0284c7" />
+                    <span>Manager: <strong style={{ color: '#0f172a' }}>{getUserName(proj.managerId)}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Footer Actions */}
+              <div style={{ display: 'flex', gap: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
+                <button
+                  onClick={() => setSelectedProjectDetails(proj)}
+                  style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', borderRadius: '8px', padding: '0.45rem', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                >
+                  <Eye size={14} /> Project Details
+                </button>
+                {canAssignEmployees && (
+                  <button
+                    onClick={() => { setAssigningProject(proj); setIsAssignModalOpen(true); }}
+                    style={{ flex: 1, background: '#e0e7ff', border: '1px solid #c7d2fe', color: '#4338ca', borderRadius: '8px', padding: '0.45rem', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                  >
+                    <UserPlus size={14} /> Assign Member
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modals */}
+      <ProjectModal
+        isOpen={isProjectModalOpen}
+        onClose={() => setIsProjectModalOpen(false)}
+        onSubmit={handleCreateOrUpdate}
+        managers={managers}
+        initialData={editingProject}
+      />
+
+      <AssignEmployeeModal
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        project={assigningProject}
+        employees={employees}
+        onAssigned={loadData}
+      />
+
+      <ProjectDetailsModal
+        project={selectedProjectDetails}
+        isOpen={Boolean(selectedProjectDetails)}
+        onClose={() => setSelectedProjectDetails(null)}
+      />
+    </div>
+  );
+};
