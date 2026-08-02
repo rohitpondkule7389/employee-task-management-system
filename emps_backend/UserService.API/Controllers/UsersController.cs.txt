@@ -1,0 +1,86 @@
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using UserService.API.Data;
+
+namespace UserService.API.Controllers
+{
+    [ApiController]
+    [Route("api/users")]
+    //[Authorize]
+    public class UsersController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public UsersController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet("managers")]
+        public async Task<IActionResult> GetManagers()
+        {
+            var managers = await _context.Users
+                .Where(x => x.Role == "Manager" && x.IsActive)
+                .Select(x => new
+                {
+                    x.UserId,
+                    x.FullName
+                })
+                .ToListAsync();
+
+            return Ok(managers);
+        }
+
+
+        [HttpGet("employees")]
+        public async Task<IActionResult> GetEmployees()
+        {
+            var employees = await _context.Users
+                .Where(x => x.Role == "Employee")
+                .Select(x => new
+                {
+                    x.UserId,
+                    x.FullName
+                })
+                .ToListAsync();
+
+            return Ok(employees);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var users = await _context.Users
+                .Select(u => new
+                {
+                    u.UserId,
+                    u.FullName,
+                    u.Email,
+                    u.Role
+                })
+                .ToListAsync();
+
+            return Ok(users);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetUserById(int id)
+        {
+            var user = await _context.Users.FindAsync(id);
+
+            if (user == null)
+                return NotFound();
+
+            return Ok(new
+            {
+                user.UserId,
+                user.FullName,
+                user.Email,
+                Role = user.Role
+            });
+        }
+
+
+    }
+}
